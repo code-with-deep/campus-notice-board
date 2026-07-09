@@ -1,40 +1,172 @@
-This is a [Next.js](https://nextjs.org/) project bootstrapped with [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app).
+# Campus Notice Board
 
-## Getting Started
+A production-quality Notice Board CRUD application built with Next.js Pages Router, Prisma ORM, and a hosted MySQL database (TiDB Cloud). Designed for campus announcements with category, priority, and publish date management.
 
-First, run the development server:
+---
+
+## How to Run Locally
+
+### Prerequisites
+
+- Node.js 18+
+- npm
+- A hosted MySQL database (TiDB Cloud recommended)
+
+### Steps
+
+1. **Clone the repository**
+
+```bash
+git clone <your-repository-url>
+cd campus-notice-board
+```
+
+2. **Install dependencies**
+
+```bash
+npm install
+```
+
+3. **Set up environment variables**
+
+```bash
+cp .env.example .env
+```
+
+On Windows (PowerShell):
+
+```powershell
+copy .env.example .env
+```
+
+Update `.env` with your MySQL connection string:
+
+```env
+DATABASE_URL="mysql://USER:PASSWORD@HOST:4000/DATABASE?sslaccept=strict"
+```
+
+4. **Run database migrations**
+
+```bash
+npm run db:migrate
+```
+
+5. **Start the development server**
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+6. **Open the application**
 
-You can start editing the page by modifying `pages/index.js`. The page auto-updates as you edit the file.
+Visit [http://localhost:3000](http://localhost:3000)
 
-[API routes](https://nextjs.org/docs/api-routes/introduction) can be accessed on [http://localhost:3000/api/hello](http://localhost:3000/api/hello). This endpoint can be edited in `pages/api/hello.js`.
+### Useful Commands
 
-The `pages/api` directory is mapped to `/api/*`. Files in this directory are treated as [API routes](https://nextjs.org/docs/api-routes/introduction) instead of React pages.
+| Command | Description |
+|---|---|
+| `npm run dev` | Start development server |
+| `npm run build` | Production build |
+| `npm run lint` | Run ESLint |
+| `npm run db:migrate` | Apply database migrations |
+| `npm run db:studio` | Open Prisma Studio |
+| `npm run test:e2e` | Run API end-to-end tests |
 
-This project uses [`next/font`](https://nextjs.org/docs/basic-features/font-optimization) to automatically optimize and load Inter, a custom Google Font.
+---
 
-## Learn More
+## One Thing I Would Improve With More Time
 
-To learn more about Next.js, take a look at the following resources:
+**Add role-based authentication and authorization.**
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Right now the app supports open CRUD access. In a real campus deployment, only authorized staff should be able to create, edit, or delete notices, while students should have read-only access.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js/) - your feedback and contributions are welcome!
+With more time, I would add login, role-based API protection, and an audit log for notice changes so the system is secure and accountable in production.
 
-## Deploy on Vercel
+---
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Where and How AI Was Used
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/deployment) for more details.
+AI was used as a support tool during development, not as a substitute for engineering judgment.
+
+It helped with:
+
+- Understanding assignment requirements and planning the initial architecture
+- Drafting parts of the documentation (including this README)
+- Suggesting approaches for debugging environment and database setup issues
+- Speeding up repetitive tasks such as boilerplate structure and test scripts
+
+
+
+All submitted code was reviewed, tested, and validated by me before being included in the final project.
+
+---
+
+## Features
+
+- Full CRUD for campus notices
+- RESTful API with proper HTTP status codes
+- Server-side validation for all notice fields
+- Urgent notices sorted first via Prisma (`priority` → `publishDate` → `createdAt`)
+- Responsive UI for mobile, tablet, and desktop
+- Search, filter by category/priority, and pagination
+- Delete confirmation modal, loading/empty/error states
+- Image URL preview, character counter, dark mode, toast notifications
+- Vercel deployment ready
+
+## Tech Stack
+
+- **Framework:** Next.js 14 (Pages Router)
+- **UI:** React 18, Tailwind CSS
+- **ORM:** Prisma 6
+- **Database:** MySQL (TiDB Cloud)
+- **Deployment:** Vercel
+
+## Folder Structure
+
+```
+pages/
+  index.js
+  notices/new.js
+  notices/edit/[id].js
+  api/notices/index.js
+  api/notices/[id].js
+
+components/
+  NoticeCard.jsx
+  NoticeForm.jsx
+  DeleteConfirmationModal.jsx
+  NoticeFilters.jsx
+  Pagination.jsx
+  Layout.jsx
+  Navbar.jsx
+  ...
+
+lib/
+  prisma.js
+  validation.js
+  api.js
+  notices-query.js
+
+prisma/
+  schema.prisma
+```
+
+## Deployment (Vercel)
+
+1. Push the repository to GitHub
+2. Import the project in Vercel
+3. Add `DATABASE_URL` in Vercel environment variables
+4. Deploy
+5. Run `npm run db:deploy` against production
+
+## API Endpoints
+
+| Method | Endpoint | Description |
+|---|---|---|
+| `GET` | `/api/notices` | List notices (supports `q`, `category`, `priority`, `page`, `limit`) |
+| `POST` | `/api/notices` | Create a notice |
+| `GET` | `/api/notices/[id]` | Get a single notice |
+| `PUT` | `/api/notices/[id]` | Update a notice |
+| `DELETE` | `/api/notices/[id]` | Delete a notice |
+
+**Status codes:** `200`, `201`, `400`, `404`, `405`, `500`

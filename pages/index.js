@@ -1,115 +1,199 @@
-import Image from "next/image";
-import localFont from "next/font/local";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import toast from "react-hot-toast";
+import DeleteConfirmationModal from "@/components/DeleteConfirmationModal";
+import EmptyState from "@/components/EmptyState";
+import ErrorMessage from "@/components/ErrorMessage";
+import Layout from "@/components/Layout";
+import NoticeCard from "@/components/NoticeCard";
+import NoticeCardSkeleton from "@/components/NoticeCardSkeleton";
+import NoticeFilters from "@/components/NoticeFilters";
+import Pagination from "@/components/Pagination";
+import { DEFAULT_PAGE_SIZE } from "@/utils/constants";
+import { apiRequest, buildNoticesQueryString, getErrorMessage } from "@/utils/helpers";
 
-const geistSans = localFont({
-  src: "./fonts/GeistVF.woff",
-  variable: "--font-geist-sans",
-  weight: "100 900",
-});
-const geistMono = localFont({
-  src: "./fonts/GeistMonoVF.woff",
-  variable: "--font-geist-mono",
-  weight: "100 900",
-});
+const INITIAL_FILTERS = {
+  q: "",
+  category: "",
+  priority: "",
+  page: 1,
+};
 
-export default function Home() {
+export default function HomePage() {
+  const [notices, setNotices] = useState([]);
+  const [pagination, setPagination] = useState(null);
+  const [filters, setFilters] = useState(INITIAL_FILTERS);
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [noticeToDelete, setNoticeToDelete] = useState(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deletingNoticeId, setDeletingNoticeId] = useState(null);
+  const [deleteError, setDeleteError] = useState("");
+  const previousNoticesRef = useRef([]);
+
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      setDebouncedSearch(filters.q);
+    }, 300);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [filters.q]);
+
+  const hasActiveFilters = useMemo(
+    () => Boolean(filters.q || filters.category || filters.priority),
+    [filters.category, filters.priority, filters.q],
+  );
+
+  const fetchNotices = useCallback(async () => {
+    setIsLoading(true);
+    setError("");
+
+    const queryString = buildNoticesQueryString({
+      q: debouncedSearch,
+      category: filters.category,
+      priority: filters.priority,
+      page: filters.page,
+      limit: DEFAULT_PAGE_SIZE,
+    });
+
+    try {
+      const data = await apiRequest(`/api/notices${queryString}`);
+      setNotices(data.notices);
+      setPagination(data.pagination);
+    } catch (fetchError) {
+      setError(getErrorMessage(fetchError, "Unable to load notices. Please try again."));
+      setNotices([]);
+      setPagination(null);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [debouncedSearch, filters.category, filters.page, filters.priority]);
+
+  useEffect(() => {
+    fetchNotices();
+  }, [fetchNotices]);
+
+  const handleFilterChange = (updates) => {
+    setFilters((current) => ({
+      ...current,
+      ...updates,
+    }));
+  };
+
+  const handleClearFilters = () => {
+    setFilters(INITIAL_FILTERS);
+  };
+
+  const handleDeleteRequest = (notice) => {
+    setDeleteError("");
+    setNoticeToDelete(notice);
+  };
+
+  const handleDeleteCancel = () => {
+    if (isDeleting) return;
+    setNoticeToDelete(null);
+    setDeleteError("");
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!noticeToDelete || isDeleting) return;
+
+    const deletedNotice = noticeToDelete;
+    const deletedNoticeId = deletedNotice.id;
+
+    setIsDeleting(true);
+    setDeletingNoticeId(deletedNoticeId);
+    setDeleteError("");
+    previousNoticesRef.current = notices;
+
+    setNotices((current) => current.filter((notice) => notice.id !== deletedNoticeId));
+    setNoticeToDelete(null);
+
+    try {
+      await apiRequest(`/api/notices/${deletedNoticeId}`, {
+        method: "DELETE",
+      });
+
+      toast.success("Notice deleted successfully.");
+      await fetchNotices();
+    } catch (deleteRequestError) {
+      setNotices(previousNoticesRef.current);
+      const message = getErrorMessage(deleteRequestError, "Unable to delete notice. Please try again.");
+      setDeleteError(message);
+      toast.error(message);
+    } finally {
+      setIsDeleting(false);
+      setDeletingNoticeId(null);
+    }
+  };
+
+  const showFilteredEmptyState = !isLoading && notices.length === 0 && hasActiveFilters;
+  const showGlobalEmptyState = !isLoading && notices.length === 0 && !hasActiveFilters && !error;
+
   return (
-    <div
-      className={`${geistSans.variable} ${geistMono.variable} grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]`}
-    >
-      <main className="flex flex-col gap-8 row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="https://nextjs.org/icons/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-semibold">
-              pages/index.js
-            </code>
-            .
-          </li>
-          <li>Save and see your changes instantly.</li>
-        </ol>
-
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=default-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="https://nextjs.org/icons/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:min-w-44"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=default-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+    <Layout title="Campus Notice Board">
+      <section>
+        <div className="mb-8 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-slate-100">Notices</h1>
+            <p className="mt-2 max-w-2xl text-sm text-slate-600 dark:text-slate-400">
+              Search, filter, and browse campus announcements. Urgent notices are always sorted first by the server.
+            </p>
+          </div>
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-6 flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=default-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
+
+        <div className="mb-6">
+          <NoticeFilters
+            filters={filters}
+            onChange={handleFilterChange}
+            onClear={handleClearFilters}
+            hasActiveFilters={hasActiveFilters}
           />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=default-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
+        </div>
+
+        {error ? <ErrorMessage message={error} className="mb-6" /> : null}
+        {deleteError ? <ErrorMessage message={deleteError} className="mb-6" /> : null}
+
+        {isLoading ? (
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
+            {Array.from({ length: DEFAULT_PAGE_SIZE }).map((_, index) => (
+              <NoticeCardSkeleton key={index} />
+            ))}
+          </div>
+        ) : showFilteredEmptyState ? (
+          <EmptyState
+            title="No matching notices."
+            message="Try adjusting your search or filters to find what you are looking for."
+            showCreateButton
+            actionLabel="Clear Filters"
+            onAction={handleClearFilters}
           />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=default-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
-    </div>
+        ) : showGlobalEmptyState ? (
+          <EmptyState />
+        ) : (
+          <>
+            <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
+              {notices.map((notice) => (
+                <NoticeCard
+                  key={notice.id}
+                  notice={notice}
+                  onDelete={handleDeleteRequest}
+                  isDeleting={deletingNoticeId === notice.id}
+                />
+              ))}
+            </div>
+            <Pagination pagination={pagination} onPageChange={(page) => handleFilterChange({ page })} />
+          </>
+        )}
+      </section>
+
+      <DeleteConfirmationModal
+        notice={noticeToDelete}
+        isOpen={Boolean(noticeToDelete)}
+        isDeleting={isDeleting}
+        onCancel={handleDeleteCancel}
+        onConfirm={handleDeleteConfirm}
+      />
+    </Layout>
   );
 }
